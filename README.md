@@ -1,1 +1,1 @@
-# boxcounting
+# Box counting code
