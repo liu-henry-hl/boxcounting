@@ -86,14 +86,12 @@ class BareVertex(UniqueRepresentation):
                    for PP in self._partitions.with_num_boxes(k))
 
     @cached_method
-    def series_unreduced(self, prec):
+    def series_unreduced(self, prec, q=Default.q):
         r"""
         Return the *unreduced* series corresponding to ``self``,
         indexed by `-q`. The series will have precision ``prec``,
         i.e. will contain exactly ``prec`` terms.
         """
-        q = Default.q
-
         min_vol = self._partitions.minimal_volume()
         if prec <= 0:
             return Default.boxcounting_ring.zero().add_bigoh(min_vol)
@@ -102,14 +100,14 @@ class BareVertex(UniqueRepresentation):
         return res.add_bigoh(prec+min_vol)
 
     @cached_method
-    def series(self, prec):
+    def series(self, prec, q=Default.q):
         r"""
         Return the series corresponding to ``self``, indexed by `-q`.
         The series will have precision ``prec``, i.e. will contain
         exactly ``prec`` terms.
         """
         deg0 = self.__class__([], [], [], ct=self._ct)
-        return (self.series_unreduced(prec) / deg0.series_unreduced(prec))
+        return (self.series_unreduced(prec,q) / deg0.series_unreduced(prec,q))
 
 def _adjoin_variables_to_LPR(LPR, m, name='u'):
     r"""
@@ -252,7 +250,7 @@ class BareVertexPT(UniqueRepresentation):
         return R(res.subs({qi : 1 for qi in q}))
 
     @cached_method
-    def term(self, k):
+    def _term(self, k):
         r"""
         Returns the `k`-th non-zero term in the q-series
         corresponding to ``self``.
@@ -265,18 +263,26 @@ class BareVertexPT(UniqueRepresentation):
             res += R(self._ct.measure(N)) * contrib
         return res
 
-    @cached_method
-    def series(self, prec):
+    def term(self, k, x=Default.x, y=Default.y, z=Default.z):
         r"""
-        Return the series corresponding to ``self``, indexed by ``-q``.
+        Returns the `k`-th non-zero term in the q-series
+        corresponding to ``self``, in variables `x, y, z`.
+        """
+        res = self._term(k)
+        if (x, y, z) != (Default.x, Default.y, Default.z):
+            R = Default.boxcounting_ring.base_ring()
+            res = res.subs(x=R(x), y=R(y), z=R(z))
+        return res
+
+    def series(self, prec, x=Default.x, y=Default.y, z=Default.z, q=Default.q):
+        r"""
+        Return the series corresponding to ``self``, indexed by `-q`.
         The series will have precision ``prec``, i.e. will contain
         exactly ``prec`` terms.
         """
-        q = Default.q
-
         min_vol = self._min_vol
         if prec <= 0:
             return Default.boxcounting_ring.zero().add_bigoh(min_vol)
 
-        res = sum(self.term(k) * (-q)^(k+min_vol) for k in xrange(prec))
+        res = sum(self.term(k,x,y,z) * (-q)^(k+min_vol) for k in xrange(prec))
         return res.add_bigoh(prec+min_vol)

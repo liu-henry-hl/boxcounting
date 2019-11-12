@@ -77,25 +77,13 @@ class Edge(UniqueRepresentation):
         return sum(-a*i - b*j + 1 for (i, j) in lamb.cells())
 
     @cached_method
-    def term_q(self, lamb):
+    def term_q(self, lamb, x=Default.x, y=Default.y, z=Default.z, q=Default.q):
         r"""
         Returns the q-series term corresponding to ``lamb``.
         """
-        q = Default.q
         term = self._ct.measure(Edge.weight(lamb, self._a, self._b))
+        if (x, y, z) != (Default.x, Default.y, Default.z):
+            R = Default.boxcounting_ring.base_ring()
+            term = term.subs(x=R(x), y=R(y), z=R(z))
 
         return term * (-q)^Edge.chi(lamb, self._a, self._b)
-
-    def operator(self, deg):
-        r"""
-        Returns the 2-point operator associated to ``self``,
-        for partitions of size ``deg``.
-        """
-        return diagonal_matrix([self.term_q(lamb) for lamb in Partitions(deg)])
-
-    def operator_inv(self, deg):
-        r"""
-        Returns the 2-point operator associated to ``self``,
-        for partitions of size ``deg``, with coefficients *inverted*.
-        """
-        return diagonal_matrix([1/self.term_q(lamb) for lamb in Partitions(deg)])
