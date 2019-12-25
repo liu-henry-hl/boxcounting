@@ -30,9 +30,9 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
         return self.map_basis(lambda a: M * (ZZ^2)(a))
         
     def map_basis(self, f):
-        r"""
-        Act by ``f`` on indices. The functional ``f`` must
-        take and produce a list/tuple in `\mathbb{Z}^2`.
+        """
+        Act by `f` on indices. The functional `f` must take and produce
+        a list/tuple in `\mathbb{Z}^2`.
 
         EXAMPLES::
 
@@ -70,7 +70,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
         return len(self) == 1
 
     def is_unit(self):
-        """
+        r"""
         Return ``True`` if ``self`` is a unit.
 
             sage: R = ZZ['t1','t2']; QTA = QuantumToroidalAlgebra(R.0, R.1)
@@ -88,7 +88,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
             return False
 
     def __invert__(self):
-        """
+        r"""
         Return the inverse of ``self`` if it exists.
 
             sage: R = ZZ['t1','t2']; QTA = QuantumToroidalAlgebra(R.0, R.1)
@@ -113,8 +113,8 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
 
     def _isolate_e_term(self, x):
         r"""
-        Given a monomial ``x`` consisting of only `e`'s, return
-        the coefficient of ``x`` in ``self`` and the sum of all
+        Given a monomial `x` consisting of only `e`'s, return
+        the coefficient of `x` in ``self`` and the sum of all
         other terms. The coefficient may involve `K`'s.
 
         EXAMPLES::
@@ -147,7 +147,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
 
     def _act_on_(self, x, is_left):
         r"""
-        Defines the action of ``self`` on ``x``. The argument ``is_left``
+        Defines the action of ``self`` on `x`. The argument ``is_left``
         specifies whether ``self`` acts on the left or right.
 
         EXAMPLES::
@@ -167,7 +167,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
 
     def fock(self, x, is_left, eval_param):
         r"""
-        Act by ``self`` on a symmetric polynomial ``x`` via the
+        Act by ``self`` on a symmetric polynomial `x` via the
         Fock representation with evaluation parameter ``eval_param``.
 
         EXAMPLES::
@@ -184,7 +184,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
 
 class QuantumToroidalAlgebra(CombinatorialFreeModule):
     """
-    Quantum toroidal algebra `U_q(\hat\hat\mathfrak{gl}_1)`.
+    Quantum toroidal algebra `U_q(\hat{\hat{\mathfrak{gl}}}_1)`.
     """
     Element = QuantumToroidalAlgebraElement
 
@@ -650,50 +650,28 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
                     if self.num_interior_lattice_points(a, c) == 0:
                         yield c
 
-    def fock_rep(self, mon, x, is_left=True, eval_param=1):
+    @cached_method
+    def _fock_rep_e_on_monomial(self, a, mu, R, eval_param):
         r"""
-        Defines the Fock representation of a monomial ``mon``, in the
-        quantum toroidal algebra, on a symmetric polynomial ``x``.
-        The polynomial ``x`` must live in the ring of symmetric functions
-        over the same base ring.
+        Defines the Fock representation of the element `e(a)` of the
+        quantum toroidal algebra, on the symmetric polynomial ``R[mu]``.
 
         If ``eval_param`` (default: 1) is specified, use it as the
         evaluation parameter for the Fock module.
 
-        EXAMPLES::
-
-            sage: R = ZZ['t1','t2']; QTA = QuantumToroidalAlgebra(R.0, R.1)
-            sage: Sym = SymmetricFunctions(R.fraction_field())
-            sage: P = Sym.macdonald(q=R.0, t=R.1).Ht()
-            sage: QTA.e(1,2) * P[1] # indirect doctest
-            McdHt[]
+        This function is separate from :meth:`fock_rep` for caching.
         """
-        # Trivial base case
-        if mon == self.one_basis():
-            return x
+        x = R[mu]
+        sym = SymmetricFunctions(R.base_ring())
 
-        B = self._indices.gens()
-        if is_left:
-            k = mon.trailing_support()
-        else:
-            k = mon.leading_support()
-        a = (ZZ^2)(k[:2])
-        mon_rest = mon // B[k]
-
-        sym = SymmetricFunctions(x.base_ring())
-
-        if k[2] == 'K':
-            # Defining action of K(i,j).
-            res = (self.t1*self.t2)^(a[0]/2) * x
-
-        elif a[1] == 0:
+        if a[1] == 0:
             m = a[0] # defining action of e(m,0)
             if m < 0:
-                res = (-(self.t1*self.t2)^(m/2) /
-                       ((1 - self.t1^m) * (1 - self.t2^m)) *
-                       sym.powersum()[-m] * x)
+                return R(-(self.t1*self.t2)^(m/2) /
+                         ((1 - self.t1^m) * (1 - self.t2^m)) *
+                         sym.powersum()[-m] * x)
             else:
-                res = m * self._derivative_with_respect_to_pm(x, m, sym)
+                return m * self._derivative_with_respect_to_pm(x, m, sym)
 
         elif a[0] == 0:
             m = a[1] # defining action of e(0,m)
@@ -701,6 +679,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
                 return nu, coeff * self._tautological_weight(nu, m)
             McdHt = sym.macdonald(q=self.t1, t=self.t2).Ht()
             res = sign(m)/(eval_param^m*(1-self.t1^m)) * McdHt(x).map_item(sc)
+            return R(res) # convert back to original basis
 
         else:
             # Recurse on a closer lattice point.
@@ -714,9 +693,51 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
             fock = lambda f, g: f.fock(g, True, eval_param)
             commutator = fock(ec, fock(eac, x)) - fock(eac, fock(ec, x))
             coeff, rest = self.bracket(ec, eac)._isolate_e_term(self.e(a))
-            res = fock(~coeff, commutator - fock(rest, x))
+            return fock(~coeff, commutator - fock(rest, x))
+        
+    def fock_rep(self, mon, x, is_left=True, eval_param=1):
+        r"""
+        Defines the Fock representation of a monomial ``mon``, in the
+        quantum toroidal algebra, on a symmetric polynomial ``x``.
 
-        return self.fock_rep(mon_rest, res, is_left, eval_param)
+        The polynomial ``x`` must live in the ring of symmetric functions
+        over the same base ring. The resulting symmetric function is
+        given in the same basis as ``x``. 
+
+        If ``eval_param`` (default: 1) is specified, use it as the
+        evaluation parameter for the Fock module.
+
+        EXAMPLES::
+
+            sage: R = ZZ['t1','t2']; QTA = QuantumToroidalAlgebra(R.0, R.1)
+            sage: Sym = SymmetricFunctions(R.fraction_field())
+            sage: Ht = Sym.macdonald(q=R.0, t=R.1).Ht()
+            sage: QTA.e(1,2) * Ht[1] # indirect doctest
+            McdHt[]
+        """
+        B = self._indices.gens()
+        R = x.parent()
+
+        if x.is_zero():
+            return x
+
+        res = x
+        while mon != self.one_basis():
+            if is_left:
+                k = mon.trailing_support()
+            else:
+                k = mon.leading_support()
+            a = (ZZ^2)(k[:2])
+            mon = mon // B[k]
+
+            if k[2] == 'K':
+                # Defining action of K(i,j).
+                res = (self.t1*self.t2)^(a[0]/2) * res
+            else:
+                # Defining action of e(i,j).
+                res = sum((c*self._fock_rep_e_on_monomial(a, mu, R, eval_param)
+                           for mu, c in res), R.zero())
+        return res
 
     def _derivative_with_respect_to_pm(self, x, m, sym):
         """
