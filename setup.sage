@@ -5,6 +5,7 @@ from sage.rings.fraction_field_element import FractionFieldElement
 from sage.rings.polynomial.laurent_polynomial_ring import is_LaurentPolynomialRing
 from sage.structure.element import is_Matrix
 from sage.combinat.sf.sfa import is_SymmetricFunction
+import itertools
 
 def pretty(f):
     """
@@ -14,8 +15,12 @@ def pretty(f):
         return f.apply_map(pretty)
     elif is_SymmetricFunction(f):
         return f.map_coefficients(pretty)
+    elif isinstance(f, list):
+        return [pretty(g) for g in f]
+    elif is_LaurentPolynomialRing(f.parent()):
+        return pretty(f.parent().fraction_field()(f))
     elif f:
-        return SR(factor(f))
+        return SR(f).factor()
     else:
         return f
 
@@ -166,9 +171,16 @@ class KTheory:
     name = "K-theory" # printed name
     
     @staticmethod
+    def from_monomial(m):
+        """
+        Convert the K-theoretic monomial `m` into a K-theoretic monomial.
+        """
+        return m
+
+    @staticmethod
     def measure(f):
         r"""
-        Returns the K-theoretic vertex measure applied to ``f``.
+        Returns the K-theoretic vertex measure applied to `f`.
 
         This is the homomorphism `\hat{a}(w) = 1/(w^{1/2} - w^{-1/2})`.
         The result always lives in the fraction field of the weight ring.
@@ -194,13 +206,16 @@ class KTheory:
 
     @staticmethod
     def measure_unsymmetrized(f):
-        r"""
+        """
         Returns the *unsymmetrized* K-theoretic vertex measure
-        applied to ``f``.
+        applied to `f`.
 
         This is the homomorphism `a(w) = 1/(1 - w)`. The result always
         lives in the fraction field of the weight ring.
         """
+        if f in ZZ and f == 0:
+            return 1
+
         R = f.parent()
 
         numer, denom = R.one(), R.one()
@@ -211,6 +226,26 @@ class KTheory:
             elif coeff > 0:
                 denom *= term ** coeff
         return R.fraction_field()(numer) / denom
+
+    @staticmethod
+    def determinant(f):
+        """
+        Returns the determinant of `f`.
+        """
+        if f in ZZ:
+            return 1
+        else:
+            return prod(mon^coeff for coeff, mon in f)
+
+    @staticmethod
+    def rank(f):
+        """
+        Returns the rank of `f` as a virtual bundle.
+        """
+        if f in ZZ:
+            return f
+        else:
+            return sum(f.coefficients())
 
     @staticmethod
     def edge_transformation(x, y, z, a, b):
@@ -315,6 +350,19 @@ class Cohomology:
     name = "cohomology" # printed name
 
     @staticmethod
+    def from_monomial(m):
+        """
+        Convert the K-theoretic monomial `m` into a cohomological monomial.
+        The cohomological monomial lives in the polynomial ring associated
+        to the K-theoretic ring.
+        """
+        R = m.parent()
+        if R is ZZ:
+            return 0
+        else:
+            return R.polynomial_ring()(sum(m.degree(x) * x for x in R.gens()))
+
+    @staticmethod
     def from_character(f):
         """
         Converts a character ``f`` (from K-theory) to a list of
@@ -325,8 +373,7 @@ class Cohomology:
 
         if is_LaurentPolynomialRing(R): # K-theory weight ring
             for coeff, mon in list(f):
-                wt = sum(mon.degree(x) * x for x in R.gens())
-                wt = R.polynomial_ring()(wt) # cast to cohom weight ring
+                wt = Cohomology.from_monomial(mon)
                 if coeff < 0:
                     numer += (-coeff) * [wt]
                 elif coeff > 0:
@@ -357,6 +404,28 @@ class Cohomology:
         """
         R = Default.weight_ring.polynomial_ring()
         return R(-x), R(y - a*x), R(z - b*x)
+
+    @staticmethod
+    def chern_character(k, f):
+        r"""
+        Computes the `k`-th Chern character of the K-theoretic `f`.
+        The output is in cohomology, implicitly treating the K-theoretic
+        variables as cohomological ones. (Namely, an output variable `u`
+        implicitly means `\log u`.)
+        """
+        return sum(c * Cohomology.from_monomial(w)^k / factorial(k)
+                   for c, w in f)
+
+    @staticmethod
+    def chern_class(k, f):
+        r"""
+        Computes the `k`-th Chern class of the K-theoretic `f`.
+        The output is in cohomology, implicitly treating the K-theoretic
+        variables as cohomological ones. (Namely, an output variable `u`
+        implicitly means `\log u`.)
+        """
+        roots = sum((c*[Cohomology.from_monomial(w)] for c, w in f), [])
+        return sum(prod(S) for S in itertools.combinations(roots, k))
 
 class Counting:
     """

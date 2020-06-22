@@ -30,7 +30,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
         return self.map_basis(lambda a: M * (ZZ^2)(a))
         
     def map_basis(self, f):
-        """
+        r"""
         Act by `f` on indices. The functional `f` must take and produce
         a list/tuple in `\mathbb{Z}^2`.
 
@@ -48,7 +48,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
         return self.map_support(map_monomial)
 
     def is_term(self):
-        r"""
+        """
         Returns ``True`` if ``self`` is a single term.
 
         EXAMPLES::
@@ -70,7 +70,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
         return len(self) == 1
 
     def is_unit(self):
-        r"""
+        """
         Return ``True`` if ``self`` is a unit.
 
             sage: R = ZZ['t1','t2']; QTA = QuantumToroidalAlgebra(R.0, R.1)
@@ -88,7 +88,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
             return False
 
     def __invert__(self):
-        r"""
+        """
         Return the inverse of ``self`` if it exists.
 
             sage: R = ZZ['t1','t2']; QTA = QuantumToroidalAlgebra(R.0, R.1)
@@ -146,7 +146,7 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
         return coeff, rest
 
     def _act_on_(self, x, is_left):
-        r"""
+        """
         Defines the action of ``self`` on `x`. The argument ``is_left``
         specifies whether ``self`` acts on the left or right.
 
@@ -183,12 +183,12 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
         return x.parent()(res) # convert back to original basis
 
 class QuantumToroidalAlgebra(CombinatorialFreeModule):
-    """
+    r"""
     Quantum toroidal algebra `U_q(\hat{\hat{\mathfrak{gl}}}_1)`.
     """
     Element = QuantumToroidalAlgebraElement
 
-    def __init__(self, t1, t2):
+    def __init__(self, t1, t2, category=Algebras):
         """
         Creates the quantum toroidal algebra.
         """
@@ -206,7 +206,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
             R = R.polynomial_ring()
             t1, t2 = R(t1), R(t2)
         RR = R.fraction_field()
-        cat = Algebras(RR).WithBasis().Filtered()
+        cat = category(RR).WithBasis().Filtered()
         CombinatorialFreeModule.__init__(self, RR, monomials,
                                          prefix='', bracket=False,
                                          latex_bracket=False,
@@ -215,7 +215,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         self.t1, self.t2 = t1, t2
 
     def _basis_key(self, k):
-        """
+        r"""
         Key for ordering elements `e_a` and `K_a` within monomials.
 
         All elements `K_a` are put in front. The elements `e_a` are
@@ -239,7 +239,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
             return (elt, a2/a1, -a1)
 
     def _monoid_key(self, x):
-        r"""
+        """
         Key function for the underlying monoid of ``self``.
 
         EXAMPLES::
@@ -252,7 +252,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         return self._basis_key(x[0])
 
     def _monomial_key(self, x):
-        r"""
+        """
         Compute the key for the monomial ``x`` so that terms are ordered
         by increasing degree (and decreasing convexity within each degree).
 
@@ -271,13 +271,13 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         return "Quantum toroidal algebra (t1=%s and t2=%s)" % (self.t1,self.t2)
 
     def _latex_(self):
-        r"""
+        """
         Return a latex representation of ``self``.
         """
-        return "U_{q}(\widehat{\widehat{\mathfrak{gl}}}_1)"
+        return "U_{q}(\\widehat{\\widehat{\\mathfrak{gl}}}_1)"
 
     def _repr_term(self, m):
-        r"""
+        """
         Return a string representation of the term indexed by ``m``.
 
         The unit of the algebra is denoted by ``u``.
@@ -294,7 +294,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         return '*'.join(to_str(x) for x in m._sorted_items())
 
     def _latex_term(self, m):
-        r"""
+        """
         Return a latex representation of the term indexed by ``m``.
         """
         if m == self.one_basis():
@@ -309,7 +309,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         return ' '.join(to_str(x) for x in m._sorted_items())
 
     def algebra_generators(self):
-        r"""
+        """
         Return the algebra generators of ``self``.
 
         EXAMPLES::
@@ -418,7 +418,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         return self._indices.one()
 
     def n(self, d):
-        """
+        r"""
         Return the coefficient `n_d`, defined as
 
         .. MATH::
@@ -432,7 +432,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
 
     @cached_method
     def Psi(self, a1, a2=None):
-        """
+        r"""
         Returns the element `\Psi_{(a_1, a_2)}`, where
 
         .. MATH::
@@ -459,6 +459,12 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
 
         return sum((prod(self.n(m)*self.e(m*a1_red, m*a2_red) for m in L) /
                     factorial(len(L))) for L in Compositions(k))
+
+    def degree_on_basis(self, x):
+        """
+        Return the principal degree of a monomial `x`.
+        """
+        return sum(a for a, b, t in x.to_word_list() if t == 'e')
         
     @cached_method
     def product_on_basis(self, lhs, rhs):
@@ -587,13 +593,13 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         return gcd(a1, a2)
 
     def determinant(self, a, b):
-        """
+        r"""
         Computes the determinant of lattice points `\vec a` and `\vec b`.
         """
         return a[0]*b[1] - a[1]*b[0]
 
     def num_interior_lattice_points(self, a, b):
-        """
+        r"""
         Returns the number of interior lattice points in the triangle
         formed by 0, `\vec a` and `\vec b`, computed using Pick's formula.
 
@@ -620,7 +626,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         return (A + 2 - b) // 2
 
     def primitive_interior_lattice_points(self, a, b):
-        """
+        r"""
         Iterates through primitive interior lattice points in the
         triangle formed by 0, `\vec a` and `\vec b`.
 
@@ -640,8 +646,8 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         # the given triangle manually.
         a, b = (ZZ^2)(a), (ZZ^2)(b)
         edges = (0,a), (a,b), (b,0) # edge vectors in cyclic orientation
-        for y in xrange(min(0, a[1], b[1])+1, max(0, a[1], b[1])):
-            for x in xrange(min(0, a[0], b[0])+1, max(0, a[0], b[0])):
+        for y in range(min(0, a[1], b[1])+1, max(0, a[1], b[1])):
+            for x in range(min(0, a[0], b[0])+1, max(0, a[0], b[0])):
                 c = (ZZ^2)((x, y))
                 if self.deg(c) != 1 or self.deg(a-c) != 1:
                     continue

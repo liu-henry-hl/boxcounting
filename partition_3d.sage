@@ -159,7 +159,7 @@ class Partition3d(ClonableElement):
                 self._exists_in_nu(i, j, k)]
 
     def _exists_in_lamb(self, i, j, k):
-        """
+        r"""
         Checks whether `(i, j, k)` is a box in the infinite leg `\lambda`.
         """
         return 0 <= k < len(self._lamb) and 0 <= j < self._lamb[k]
@@ -186,7 +186,7 @@ class Partition3d(ClonableElement):
             return "3d partition with legs %s, %s, %s and extra boxes %s" % \
                 (self._lamb, self._mu, self._nu, list(self._boxes))
 
-    def _hash_(self):
+    def __hash__(self):
         """
         Return the hash of ``self``.
         """
@@ -245,7 +245,7 @@ class Partition3d(ClonableElement):
         seen = {}
         while stack:
             (i, j) = stack.pop()
-            for k in xrange(Nz):
+            for k in range(Nz):
                 if (i, j, k) not in self:
                     break
                 yield (i, j, k)
@@ -427,9 +427,9 @@ class Partition3d(ClonableElement):
             [(0, 0, 1), (2, 3, 0)]
         """
         # TODO: could use a slightly smarter algorithm...
-        for i in xrange(self._Nx + 1):
-            for j in xrange(self._Ny + 1):
-                for k in xrange(self._Nz + 1):
+        for i in range(self._Nx + 1):
+            for j in range(self._Ny + 1):
+                for k in range(self._Nz + 1):
                     if (i, j, k) not in self and self._is_box_valid(i, j, k):
                         yield (i, j, k)
                         break # can't add higher boxes
@@ -468,7 +468,7 @@ class Partitions3d(UniqueRepresentation, Parent):
         lamb = Partition(lamb if lamb else [])
         mu = Partition(mu if mu else [])
         nu = Partition(nu if nu else [])
-        return Partitions3d.__classcall__(cls, lamb, mu, nu)
+        return cls.__classcall__(cls, lamb, mu, nu)
     
     def __init__(self, lamb, mu, nu):
         r"""
@@ -626,7 +626,7 @@ class Partitions3d(UniqueRepresentation, Parent):
         possible boxes to add), and do this `n` times.
         """
         PP = self.minimal_element()
-        for _ in xrange(n):
+        for _ in range(n):
             addable_boxes = list(PP.addable_boxes())
 
             import random

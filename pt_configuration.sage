@@ -30,7 +30,7 @@ class PTConfiguration(Partition3d):
             raise ValueError("first argument must be a list of (i, j, k)")
         if labels and not isinstance(labels, dict):
             raise ValueError("second argument must be dict of labels")
-            
+
         return PTConfigurations(lamb, mu, nu)(boxes, labels, check)
 
     def __init__(self, parent, boxes, labels=None, check=True):
@@ -194,11 +194,11 @@ class PTConfiguration(Partition3d):
         return "PT configuration: boxes=%s, labels=%s" % \
             (list(self._boxes), self._labels)
 
-    def _hash_(self):
+    def __hash__(self):
         """
         Return the hash of ``self``.
         """
-        return (super(PTConfiguration, self)._hash_() ^^
+        return (super(PTConfiguration, self).__hash__() ^^
                 hash(frozenset(self._labels)))
 
     def __copy__(self):
@@ -239,7 +239,7 @@ class PTConfiguration(Partition3d):
 
     def boxes(self, **kwargs):
         r"""
-        Iterate through all boxes ``(i, j, k)`` in ``self``.
+        Iterate through all boxes `(i, j, k)` in ``self``.
 
         If ``labels=True``, then return each box in the form
         ``(i, j, k, label)``. If not a type III box, ``label`` is ``None``.
@@ -265,7 +265,7 @@ class PTConfiguration(Partition3d):
                 yield (i, j, k)
 
     def _subsumes(self, other):
-        r"""
+        """
         Returns ``True`` if the fixed locus corresponding to ``self``
         contains the fixed locus of ``other``.
 
@@ -293,14 +293,14 @@ class PTConfiguration(Partition3d):
                    for box in self._boxes if box not in restricted)
 
     def length(self):
-        r"""
+        """
         Returns the *length* of ``self``, defined as the number of boxes
         where unlabeled type `III` boxes count twice.
         """
         return self._length
 
     def volume(self):
-        r"""
+        """
         Returns the *normalized* volume of ``self``.
 
         The normalized volume of a PT configuration is defined as
@@ -337,7 +337,7 @@ class PTConfiguration(Partition3d):
             yield (i, j, k-1)
 
     def unrestricted_paths(self):
-        r"""
+        """
         Returns a list of all unrestricted paths in ``self``. Each path
         is a set of its constituent boxes.
         """
@@ -367,7 +367,7 @@ class PTConfiguration(Partition3d):
         return res
 
     def dimension(self):
-        r"""
+        """
         Return the dimension of the fixed locus represented by ``self``.
         """
         return len(self.unrestricted_paths())
@@ -378,12 +378,12 @@ class PTConfiguration(Partition3d):
         multipled by the additional factor `(1-x)(1-y)(1-z)`.
 
         This guarantees the result is a Laurent polynomial in `x, y, z`
-        and the K-theory variables in ``KRing`` (default variables: `u_i`.)
+        and the K-theory variables in ``KRing`` (default variables: `u_i`).
         """
         R = x.parent()
         if KRing is None:
             wtvars = list(R.variable_names())
-            Kvars = ['u%s' % i for i in xrange(self.dimension())]
+            Kvars = ['u%s' % i for i in range(self.dimension())]
             KRing = LaurentPolynomialRing(R.base_ring(), Kvars + wtvars)
         
         char = R.zero()
@@ -497,9 +497,9 @@ class PTConfiguration(Partition3d):
             [(0, 0, 1), (2, 3, 0)]
         """
         # TODO: could use a slightly smarter algorithm...
-        for i in xrange(self._Mx-2, self._Nx):
-            for j in xrange(self._My-2, self._Ny):
-                for k in xrange(self._Mz-2, self._Nz):
+        for i in range(self._Mx-2, self._Nx):
+            for j in range(self._My-2, self._Ny):
+                for k in range(self._Mz-2, self._Nz):
                     if (i, j, k) in self:
                         break # can't add higher boxes
                     valid, label = self._is_box_valid(i, j, k, label=None)
@@ -534,7 +534,7 @@ class PTConfigurations(Partitions3d):
         lamb = Partition(lamb if lamb else [])
         mu = Partition(mu if mu else [])
         nu = Partition(nu if nu else [])
-        return PTConfigurations.__classcall__(cls, lamb, mu, nu)
+        return cls.__classcall__(cls, lamb, mu, nu)
 
     def __init__(self, lamb, mu, nu):
         r"""
@@ -562,7 +562,7 @@ class PTConfigurations(Partitions3d):
         return self._legs._unnormalized_character(x, y, z)
 
     def _compute_next_partitions(self):
-        r"""
+        """
         Compute all configurations in ``self`` obtained by adding one
         box to what has already been computed and cached.
 

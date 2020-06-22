@@ -31,7 +31,7 @@ def compute_refined_vertex_by_formula(lamb, mu, nu, n=4):
         # Degree 0 case: use formula 23 (MacMahon generalization)
         M = qtR.one().add_bigoh(n)
         M *= prod((1 - q^(i+j-1)*t^(i-j+1))^-1 \
-                  for i in xrange(1, n) for j in xrange(1, n-i+1))
+                  for i in range(1, n) for j in range(1, n-i+1))
         return M
     else:
         # General case: use formula 24.
@@ -54,10 +54,10 @@ def test_equal(func1, func2, *args, **kwds):
     res1 = func1(*args, **kwds)
     res2 = func2(*args, **kwds)
     if res1 != res2:
-        print "TEST FAILED"
-        print "  %s = %s" % (func1.__name__, res1)
-        print "  %s = %s" % (func2.__name__, res2)
-        print "  args: %s, kwds: %s" % (args, kwds)
+        print("TEST FAILED")
+        print("  %s = %s" % (func1.__name__, res1))
+        print("  %s = %s" % (func2.__name__, res2))
+        print("  args: %s, kwds: %s" % (args, kwds))
 
 def test_bare_vertex():
     """
@@ -80,12 +80,12 @@ def test_DT_PT():
 
     # Big partition, small series test
     lamb, mu, nu = random_partition(5), random_partition(5), random_partition(6)
-    print "Testing n=2, %s, %s, %s" % (lamb, mu, nu)
+    print("Testing n=2, %s, %s, %s" % (lamb, mu, nu))
     test_equal(DT, PT, lamb, mu, nu, 2)
 
     # Small partition, big series test (might take a while: ~60secs)
     lamb, mu, nu = random_partition(3), random_partition(3), random_partition(2)
-    print "Testing n=3, %s, %s, %s" % (lamb, mu, nu)
+    print("Testing n=3, %s, %s, %s" % (lamb, mu, nu))
     test_equal(DT, PT, lamb, mu, nu, 3)
 
 def test_DT_PT_hashed():
@@ -100,12 +100,12 @@ def test_DT_PT_hashed():
 
     # Big partition, small series test
     lamb, mu, nu = random_partition(5), random_partition(5), random_partition(6)
-    print "Testing n=5, %s, %s, %s" % (lamb, mu, nu)
+    print("Testing n=5, %s, %s, %s" % (lamb, mu, nu))
     test_equal(DT, PT, lamb, mu, nu, 5)
 
     # Small partition, big series test (might take a while: ~60secs)
     lamb, mu, nu = random_partition(3), random_partition(3), random_partition(2)
-    print "Testing n=8, %s, %s, %s" % (lamb, mu, nu)
+    print("Testing n=8, %s, %s, %s" % (lamb, mu, nu))
     test_equal(DT, PT, lamb, mu, nu, 8)
 
 def test_DT_PT_hashed_thorough():
@@ -113,10 +113,10 @@ def test_DT_PT_hashed_thorough():
     DT = lambda lamb, mu, nu, n: BareVertex(lamb, mu, nu, ct).series(n)
     PT = lambda lamb, mu, nu, n: BareVertexPT(lamb, mu, nu, ct).series(n)
 
-    for lamb in chain(*[Partitions(n) for n in xrange(4,0,-1)]):
-        for mu in chain(*[Partitions(n) for n in xrange(4,0,-1)]):
-            print "Reached %s, %s" % (lamb, mu)
-            for nu in chain(*[Partitions(n) for n in xrange(4,0,-1)]):
+    for lamb in chain(*[Partitions(n) for n in range(4,0,-1)]):
+        for mu in chain(*[Partitions(n) for n in range(4,0,-1)]):
+            print("Reached %s, %s" % (lamb, mu))
+            for nu in chain(*[Partitions(n) for n in range(4,0,-1)]):
                 test_equal(DT, PT, lamb, mu, nu, 6)
 
 def test_DT_PT_counts():
@@ -131,12 +131,12 @@ def test_DT_PT_counts():
 
     # Big partition, small series test
     lamb, mu, nu = random_partition(8), random_partition(8), random_partition(9)
-    print "Testing n=5, %s, %s, %s" % (lamb, mu, nu)
+    print("Testing n=5, %s, %s, %s" % (lamb, mu, nu))
     test_equal(DT, PT, lamb, mu, nu, 5)
 
     # Small partition, big series test (might take a while: ~60secs)
     lamb, mu, nu = random_partition(4), random_partition(4), random_partition(4)
-    print "Testing n=9, %s, %s, %s" % (lamb, mu, nu)
+    print("Testing n=9, %s, %s, %s" % (lamb, mu, nu))
     test_equal(DT, PT, lamb, mu, nu, 9)
 
 def test_DT_PT_counts_thorough():
@@ -146,7 +146,7 @@ def test_DT_PT_counts_thorough():
     DT = lambda lamb, mu, nu, n: BareVertex(lamb, mu, nu).series(n, DT_wt)
     PT = lambda lamb, mu, nu, n: BareVertexPT(lamb, mu, nu).series(n, PT_wt)
 
-    for lamb in chain(*[Partitions(n) for n in xrange(4,0,-1)]):
-        for mu in chain(*[Partitions(n) for n in xrange(4,0,-1)]):
-            for nu in chain(*[Partitions(n) for n in xrange(4,0,-1)]):
+    for lamb in chain(*[Partitions(n) for n in range(4,0,-1)]):
+        for mu in chain(*[Partitions(n) for n in range(4,0,-1)]):
+            for nu in chain(*[Partitions(n) for n in range(4,0,-1)]):
                 test_equal(DT, PT, lamb, mu, nu, 9)

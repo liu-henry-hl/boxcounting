@@ -5,14 +5,14 @@ from sage.misc.cachefunc import cached_method, cached_function
 from sage.structure.unique_representation import UniqueRepresentation
 from itertools import chain, combinations
 
-load("partition_3d.sage")
-load("pt_configuration.sage")
-
 load("setup.sage") # contains Default and KTheory
 load("edge.sage")
 
+load("partition_3d.sage")
+load("pt_configuration.sage")
+
 class BareVertex(UniqueRepresentation):
-    """
+    r"""
     Equivariant DT (bare) vertex with three given legs.
 
     The leg `\lambda` has rows along the `y` axis and columns along
@@ -76,17 +76,33 @@ class BareVertex(UniqueRepresentation):
         return quo
 
     @cached_method
-    def term(self, k):
+    def _term(self, k, descendant=None):
         r"""
-        Returns the ``k``th non-zero term in the q-series
+        Returns the `k`-th non-zero term in the q-series
         corresponding to ``self``.
         """
         R = Default.boxcounting_ring.base_ring()
-        return sum(R(self._ct.measure(self.__class__.weight(PP)))
+        x, y, z = Default.x, Default.y, Default.z
+        if descendant is None:
+            descendant = lambda f: R.one()
+
+        return sum(R(self._ct.measure(self.__class__.weight(PP))) *
+                   R(descendant(PP._unnormalized_character(x,y,z)))
                    for PP in self._partitions.with_num_boxes(k))
 
+    def term(self, k, x=Default.x, y=Default.y, z=Default.z, descendant=None):
+        r"""
+        Returns the `k`-th non-zero term in the q-series
+        corresponding to ``self``, in variables `x, y, z`.
+        """
+        res = self._term(k, descendant)
+        if (x, y, z) != (Default.x, Default.y, Default.z):
+            R = Default.boxcounting_ring.base_ring()
+            res = res.subs(x=R(x), y=R(y), z=R(z))
+        return res
+
     @cached_method
-    def series_unreduced(self, prec, q=Default.q):
+    def series_unreduced(self, prec, x=Default.x, y=Default.y, z=Default.z, q=Default.q, descendant=None):
         r"""
         Return the *unreduced* series corresponding to ``self``,
         indexed by `-q`. The series will have precision ``prec``,
@@ -96,18 +112,23 @@ class BareVertex(UniqueRepresentation):
         if prec <= 0:
             return Default.boxcounting_ring.zero().add_bigoh(min_vol)
 
-        res = sum(self.term(k) * (-q)^(k+min_vol) for k in xrange(prec))
-        return res.add_bigoh(prec+min_vol)
+        res = sum(self.term(k, x,y,z, descendant) * (-q)^(k+min_vol)
+                  for k in range(prec))
+        return res.add_bigoh((prec + min_vol)*q.valuation())
 
     @cached_method
-    def series(self, prec, q=Default.q):
+    def series(self, prec, x=Default.x, y=Default.y, z=Default.z, q=Default.q, descendant=None):
         r"""
         Return the series corresponding to ``self``, indexed by `-q`.
         The series will have precision ``prec``, i.e. will contain
         exactly ``prec`` terms.
         """
-        deg0 = self.__class__([], [], [], ct=self._ct)
-        return (self.series_unreduced(prec,q) / deg0.series_unreduced(prec,q))
+        res = self.series_unreduced(prec, x,y,z, q, descendant)
+        if prec <= 0:
+            return res # no need to normalize by "zero"
+        else:
+            deg0 = self.__class__([], [], [], ct=self._ct)
+            return res / deg0.series_unreduced(prec, x,y,z, q)
 
 def _adjoin_variables_to_LPR(LPR, m, name='u'):
     r"""
@@ -115,12 +136,12 @@ def _adjoin_variables_to_LPR(LPR, m, name='u'):
     ``name``. Return the ring and the new variables.
     """
     original_vars = list(LPR.variable_names())
-    new_vars = [name+'%s' % i for i in xrange(m)]
+    new_vars = [name+'%s' % i for i in range(m)]
     new_ring = LaurentPolynomialRing(LPR.base_ring(), new_vars + original_vars)
     return new_ring, new_ring.gens()[:m]
 
 class BareVertexPT(UniqueRepresentation):
-    """
+    r"""
     Equivariant PT (bare) vertex with three given legs.
 
     The leg `\lambda` has rows along the `y` axis and columns along
@@ -200,31 +221,37 @@ class BareVertexPT(UniqueRepresentation):
 
         V = BareVertexPT.weight(config, x, y, z, KRing)
         V -= sum(2*ui - 1 for ui in u) # tangent weights of the (P1)^m
-        
+
         N, Ntwisted = R.zero(), []
         for exps, coeff in V.dict().items():
             P_exps, wt_exps = exps[:m], exps[m:]
             if all(e == 0 for e in P_exps):
                 N += R({wt_exps: coeff})
             else:
-                for _ in xrange(abs(coeff)): # multiplicity
+                for _ in range(abs(coeff)): # multiplicity
                     Ntwisted.append( (P_exps, R({wt_exps: sign(coeff)})) )
         return N, Ntwisted
 
-    def _integrate_over_fixed_loci(self, f):
+    def _integrate_over_fixed_loci(self, f, integrand=None, u=None):
         r"""
-        Computes the integral oer `(\mathbb{P}^1)^m` of the K-theory
-        class `f^\vee`.
+        Computes the integral over `(\mathbb{P}^1)^m` of the measure
+        of `f^\vee`, with integrand ``integrand`` using twisting variables `u`.
+        We assume that if `u` is unspecified, then it is the first `m`
+        variables in the ring containing ``integrand``.
 
-        The element `f` must be a list of pairs ``(deg, wt)`` where:
+        Here `f` must be a list of pairs ``(deg, wt)`` where:
 
         - ``deg`` is a tuple `(d_1, \ldots, d_m)` of exponents, representing
           a twist by the bundle `\mathcal{O}(d_1, \ldots, d_m)`;
 
         - ``wt`` is a character.
         """
+        R = Default.boxcounting_ring.base_ring()
+        if integrand is None:
+            integrand = R.one()
+
         if len(f) == 0:
-            return 1
+            return R(integrand)
 
         dims = set(len(deg) for deg, _ in f) # number of P1 factors
         if len(dims) > 1:
@@ -233,48 +260,59 @@ class BareVertexPT(UniqueRepresentation):
 
         # Localization weights q_i, for each P1 that appears.
         wt_ring = f[0][1].parent() # weight ring
-        _, q = _adjoin_variables_to_LPR(wt_ring, m, name='q')
+        qR, q = _adjoin_variables_to_LPR(wt_ring, m, name='q')
+
+        if u is None:
+            u = integrand.parent().gens()[:m]
 
         def powerset(s):
             return chain.from_iterable(combinations(s, r) for \
-                                       r in xrange(len(s)+1))
+                                       r in range(len(s)+1))
         res = 0
         for fixed_pt in powerset(range(m)):
             # Localization on (P1)^m
-            L1, L2 = fixed_pt, set(xrange(m)) - set(fixed_pt)
+            L1, L2 = fixed_pt, set(range(m)) - set(fixed_pt)
+            qq = [(q[i] if i in L2 else 1) for i in range(m)]
             term = sum(1/q[i] for i in L1) + sum(q[i] for i in L2) + \
-                   sum(wt * prod(q[i]^(deg[i]) for i in L2) for deg, wt in f)
-            res += self._ct.measure(term)
+                   sum(wt * prod(qi^d for qi, d in zip(qq, deg))
+                       for deg, wt in f)
+            res += (self._ct.measure(term) *
+                    qR(integrand.subs({ui : self._ct.from_monomial(qi)
+                                       for ui, qi in zip(u, qq)})))
 
-        R = Default.boxcounting_ring.base_ring()
-        return R(res.subs({qi : 1 for qi in q}))
+        return R(res.subs({qi : self._ct.from_monomial(1) for qi in q}))
 
     @cached_method
-    def _term(self, k):
+    def _term(self, k, descendant=None):
         r"""
         Returns the `k`-th non-zero term in the q-series
         corresponding to ``self``.
         """
+        if descendant is None:
+            descendant = lambda f: None
         R = Default.boxcounting_ring.base_ring()
+        x, y, z = Default.x, Default.y, Default.z
         res = R.zero()
         for PP in self._configs.with_num_boxes(k):
             N, Ntwisted = self.__class__.contribution(PP)
-            contrib = self._integrate_over_fixed_loci(Ntwisted)
+            integrand = descendant(PP._unnormalized_character(x,y,z))
+            contrib = self._integrate_over_fixed_loci(Ntwisted, integrand)
             res += R(self._ct.measure(N)) * contrib
         return res
 
-    def term(self, k, x=Default.x, y=Default.y, z=Default.z):
+    def term(self, k, x=Default.x, y=Default.y, z=Default.z, descendant=None):
         r"""
         Returns the `k`-th non-zero term in the q-series
         corresponding to ``self``, in variables `x, y, z`.
         """
-        res = self._term(k)
+        res = self._term(k, descendant)
         if (x, y, z) != (Default.x, Default.y, Default.z):
             R = Default.boxcounting_ring.base_ring()
             res = res.subs(x=R(x), y=R(y), z=R(z))
         return res
 
-    def series(self, prec, x=Default.x, y=Default.y, z=Default.z, q=Default.q):
+    @cached_method
+    def series(self, prec, x=Default.x, y=Default.y, z=Default.z, q=Default.q, descendant=None):
         r"""
         Return the series corresponding to ``self``, indexed by `-q`.
         The series will have precision ``prec``, i.e. will contain
@@ -284,5 +322,6 @@ class BareVertexPT(UniqueRepresentation):
         if prec <= 0:
             return Default.boxcounting_ring.zero().add_bigoh(min_vol)
 
-        res = sum(self.term(k,x,y,z) * (-q)^(k+min_vol) for k in xrange(prec))
-        return res.add_bigoh(prec+min_vol)
+        res = sum(self.term(k, x,y,z, descendant) * (-q)^(k+min_vol)
+                  for k in range(prec))
+        return res.add_bigoh((prec + min_vol)*q.valuation())
