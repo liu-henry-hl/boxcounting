@@ -227,8 +227,8 @@ class Partition3d(ClonableElement):
         from sage.plot.plot3d.shapes import ColorCube
         cube = ColorCube([.5,.5,.5], ['red', 'blue', 'green'], opacity=0.85)
         plot = sum(cube.translate(*b) for b in self.boxes(Nx=Bx, Ny=By, Nz=Bz))
-        
-        plot.rotate((0,0,1), 7*(3.14)/12).show(frame=False)
+
+        plot.show(frame=False, aspect_ratio=1)
 
     def boxes(self, Nx=PlusInfinity, Ny=PlusInfinity, Nz=PlusInfinity):
         r"""

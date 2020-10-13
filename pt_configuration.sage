@@ -228,14 +228,18 @@ class PTConfiguration(Partition3d):
     def plot(self):
         """
         Plot ``self`` as a Graphics3d object.
-
-        TODO: fix this
         """
         from sage.plot.plot3d.shapes import ColorCube
         cube = ColorCube([.5,.5,.5], ['red', 'blue', 'green'], opacity=0.85)
         plot = sum(cube.translate(*b) for b in self.boxes(labels=False))
-        
-        plot.show(aspect_ratio=1)
+
+        legs = Partitions3d(*self.parent().legs()).minimal_element()
+        Nx, Ny, Nz = legs.bounding_box()
+        Bx, By, Bz = max(10, Nx+5), max(10, Ny+5), max(10, Nz+5)
+        cube = ColorCube([.5,.5,.5], ['red', 'blue', 'green'], opacity=0.20)
+        plot += sum(cube.translate(*b) for b in legs.boxes(Nx=Bx, Ny=By, Nz=Bz))
+
+        plot.show(aspect_ratio=1, frame=False)
 
     def boxes(self, **kwargs):
         r"""

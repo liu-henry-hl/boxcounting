@@ -97,8 +97,7 @@ class BareVertex(UniqueRepresentation):
         """
         res = self._term(k, descendant)
         if (x, y, z) != (Default.x, Default.y, Default.z):
-            R = Default.boxcounting_ring.base_ring()
-            res = res.subs(x=R(x), y=R(y), z=R(z))
+            res = res.subs(x=x, y=y, z=z)
         return res
 
     @cached_method
@@ -232,7 +231,7 @@ class BareVertexPT(UniqueRepresentation):
                     Ntwisted.append( (P_exps, R({wt_exps: sign(coeff)})) )
         return N, Ntwisted
 
-    def _integrate_over_fixed_loci(self, f, integrand=None, u=None):
+    def _integrate_over_fixed_loci(self, f, integrand=None, descendant=None, u=None):
         r"""
         Computes the integral over `(\mathbb{P}^1)^m` of the measure
         of `f^\vee`, with integrand ``integrand`` using twisting variables `u`.
@@ -249,9 +248,11 @@ class BareVertexPT(UniqueRepresentation):
         R = Default.boxcounting_ring.base_ring()
         if integrand is None:
             integrand = R.one()
+        if descendant is None:
+            descendant = lambda f: 1
 
         if len(f) == 0:
-            return R(integrand)
+            return R(descendant(integrand))
 
         dims = set(len(deg) for deg, _ in f) # number of P1 factors
         if len(dims) > 1:
@@ -262,8 +263,9 @@ class BareVertexPT(UniqueRepresentation):
         wt_ring = f[0][1].parent() # weight ring
         qR, q = _adjoin_variables_to_LPR(wt_ring, m, name='q')
 
+        uR = integrand.parent()
         if u is None:
-            u = integrand.parent().gens()[:m]
+            u = uR.gens()[:m]
 
         def powerset(s):
             return chain.from_iterable(combinations(s, r) for \
@@ -276,9 +278,8 @@ class BareVertexPT(UniqueRepresentation):
             term = sum(1/q[i] for i in L1) + sum(q[i] for i in L2) + \
                    sum(wt * prod(qi^d for qi, d in zip(qq, deg))
                        for deg, wt in f)
-            res += (self._ct.measure(term) *
-                    qR(integrand.subs({ui : self._ct.from_monomial(qi)
-                                       for ui, qi in zip(u, qq)})))
+            integrand_res = Hom(uR, qR)(qq + list(wt_ring.gens()))(integrand)
+            res += self._ct.measure(term) * descendant(integrand_res)
 
         return R(res.subs({qi : self._ct.from_monomial(1) for qi in q}))
 
@@ -289,14 +290,14 @@ class BareVertexPT(UniqueRepresentation):
         corresponding to ``self``.
         """
         if descendant is None:
-            descendant = lambda f: None
+            descendant = lambda f: 1
         R = Default.boxcounting_ring.base_ring()
         x, y, z = Default.x, Default.y, Default.z
         res = R.zero()
         for PP in self._configs.with_num_boxes(k):
             N, Ntwisted = self.__class__.contribution(PP)
-            integrand = descendant(PP._unnormalized_character(x,y,z))
-            contrib = self._integrate_over_fixed_loci(Ntwisted, integrand)
+            integrand = PP._unnormalized_character(x,y,z)
+            contrib = self._integrate_over_fixed_loci(Ntwisted, integrand, descendant)
             res += R(self._ct.measure(N)) * contrib
         return res
 
