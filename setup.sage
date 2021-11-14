@@ -2,7 +2,13 @@
 Configuration for rings, variables, cohomology theory.
 """
 from sage.rings.fraction_field_element import FractionFieldElement
+from sage.rings.polynomial.polynomial_ring import is_PolynomialRing
+from sage.rings.polynomial.multi_polynomial_ring import is_MPolynomialRing
 from sage.rings.polynomial.laurent_polynomial_ring import is_LaurentPolynomialRing
+from sage.rings.power_series_ring import is_PowerSeriesRing
+from sage.rings.multi_power_series_ring import is_MPowerSeriesRing
+from sage.rings.laurent_series_ring import is_LaurentSeriesRing
+from sage.rings.fraction_field import is_FractionField
 from sage.structure.element import is_Matrix
 from sage.combinat.sf.sfa import is_SymmetricFunction
 import itertools
@@ -15,10 +21,30 @@ def pretty(f):
         return f.apply_map(pretty)
     elif is_SymmetricFunction(f):
         return f.map_coefficients(pretty)
-    elif isinstance(f, list):
+    elif isinstance(f, (tuple, list)):
         return [pretty(g) for g in f]
+    elif is_PolynomialRing(f.parent()) or is_MPolynomialRing(f.parent()):
+        return SR(f).factor()
     elif is_LaurentPolynomialRing(f.parent()):
         return pretty(f.parent().fraction_field()(f))
+    elif is_PowerSeriesRing(f.parent()):
+        if len(f.coefficients()) == 0:
+            return f
+        base = pretty(f.coefficients()[-1]).parent()
+        return f.map_coefficients(pretty, base)
+    elif is_MPowerSeriesRing(f.parent()):
+        testx = pretty(f.base_ring().an_element())
+        RSR = f.parent().change_ring(testx.parent())
+        return sum(pretty(c) * RSR(mon)
+                   for mon, c in f.coefficients().items())
+    elif is_LaurentSeriesRing(f.parent()):
+        testx = pretty(f.base_ring().an_element())
+        RSR = f.parent().change_ring(testx.parent())
+        x = RSR.gen()
+        return sum(pretty(coeff) * x^exp
+                   for exp, coeff in zip(f.exponents(), f.coefficients()))
+    elif hasattr(f, 'map_coefficients'):
+        return f.map_coefficients(pretty)
     elif f:
         return SR(f).factor()
     else:
@@ -205,37 +231,53 @@ class KTheory:
             raise NotImplementedError("%s (%s)" % (R, f))
 
     @staticmethod
-    def measure_unsymmetrized(f):
+    def measure_unsymmetrized(f, m=None, inv=True):
         """
         Returns the *unsymmetrized* K-theoretic vertex measure
         applied to `f`.
 
-        This is the homomorphism `a(w) = 1/(1 - w)`. The result always
-        lives in the fraction field of the weight ring.
+        This is the homomorphism `a(w) = 1/(1 - m/w)`. The result always
+        lives in the fraction field of the weight ring unless `m` is
+        specified.
         """
-        if f in ZZ and f == 0:
-            return 1
-
         R = f.parent()
+        if m is None:
+            m = R.one()
+        else: # find common parent (heuristic)
+            R = sage.categories.pushout.pushout(m.parent(), R.fraction_field())
 
+        if f.parent() is ZZ:
+            L = [(ZZ(f), 1)]
+        else:
+            L = list(f)
+            
         numer, denom = R.one(), R.one()
-        for coeff, monomial in f:
-            term = 1 - monomial^-1
+        for coeff, monomial in L:
+            if inv:
+                term = 1 - m*monomial^-1
+            else:
+                term = 1 - m*monomial
             if coeff < 0:
                 numer *= term ** (-coeff)
             elif coeff > 0:
                 denom *= term ** coeff
-        return R.fraction_field()(numer) / denom
+
+        if is_LaurentPolynomialRing(R):
+            return R.fraction_field()(numer) / denom # want Frac(poly ring)
+        else:
+            return numer / denom
 
     @staticmethod
-    def determinant(f):
+    def determinant(f, m=None):
         """
         Returns the determinant of `f`.
         """
+        if m is None:
+            m = 1
         if f in ZZ:
-            return 1
+            return m^ZZ(f)
         else:
-            return prod(mon^coeff for coeff, mon in f)
+            return prod((m*mon)^coeff for coeff, mon in f)
 
     @staticmethod
     def rank(f):
@@ -243,10 +285,73 @@ class KTheory:
         Returns the rank of `f` as a virtual bundle.
         """
         if f in ZZ:
-            return f
+            return ZZ(f)
         else:
             return sum(f.coefficients())
 
+    @staticmethod
+    def sym(k, f):
+        """
+        Compute the `k`-th symmetric power of the K-theory class `f`.
+        """
+        # Do it the stupid way: extract the u^k coefficient.
+        R = f.parent()
+        uR.<u> = PowerSeriesRing(R, default_prec=k+1)
+        series = KTheory.measure_unsymmetrized(f, m=u, inv=False)
+        coeffs = uR(series).coefficients()
+        return coeffs[k] if k < len(coeffs) else R.zero()
+
+    @staticmethod
+    def adams(k, f):
+        r"""
+        Apply the `k`-th Adams operation to `f`, namely the substitution
+        `(x_1, \ldots, x_N) \mapsto (x_1^k, \ldots, x_N^k)` for all
+        variables `x_i` appearing in `f`.
+
+        Supports only (Laurent) polynomial/series rings.
+        """
+        R = f.parent()
+        if ( is_PolynomialRing(R) or is_MPolynomialRing(R) or
+             is_LaurentPolynomialRing(R) or is_PowerSeriesRing(R) or
+             is_MPowerSeriesRing(R) ):
+            if R.ngens() > 1:
+                res = R( {tuple(ZZ(e*k) for e in exps) : KTheory.adams(k, coeff)
+                          for exps, coeff in f.dict().items()} )
+            else:
+                res = R( {ZZ(exp*k) : KTheory.adams(k, coeff)
+                          for exp, coeff in f.dict().items()} )
+        elif is_FractionField(R):
+            res = ( R(KTheory.adams(k, f.numerator()))
+                    / KTheory.adams(k, f.denominator()) )
+        elif is_LaurentSeriesRing(R):
+            x = R.gen()
+            res = R(sum(x^(ZZ(exp)*k) * KTheory.adams(k, coeff)
+                        for exp, coeff in zip(f.exponents(), f.coefficients())))
+        else:
+            res = f
+
+        if hasattr(f, 'precision_absolute'):
+            if f.precision_absolute() < Infinity:
+                res = res.add_bigoh(f.precision_absolute()*k)
+
+        return res
+
+    @staticmethod
+    def plethexp(f, prec):
+        """
+        Plethystic exponential of `f` to precision `prec`.
+        """
+        R = f.parent()
+        g = sum( (KTheory.adams(k, f) / k for k in range(1, prec)), R.zero() )
+        return sum( (g^k/factorial(k) for k in range(prec)), R.zero() )
+
+    @staticmethod
+    def plethlog(f):
+        """
+        Plethystic logarithm of `f`.
+        """
+        raise NotImplementedError
+    
     @staticmethod
     def edge_transformation(x, y, z, a, b):
         """
@@ -256,61 +361,45 @@ class KTheory:
         return x**(-1), y * x**(-a), z * x**(-b)
         
     @staticmethod
-    def index_limit(f, kappa, N=100000):
+    def index_limit(f, s, kappa):
         r"""
-        Given a function `f(x, y, z)` of weights, return the
-        index limit with preferred direction `z`.
+        For a balanced rational function `f(x, y, z)`, compute
+        the index limit with preferred direction given by the
+        slope `s = (a, b, c)`.
 
         The result is given using the formal variable ``kappa``.
 
-        This agrees with section 8.2.5 of Nekrasov-Okounkov, with
-        preferred slope fixing the z-axis. Our ``kappa`` is
-        their `\kappa^{1/2}`.
+        E.g. for `s = (N, -N-1, 1)` for `N \gg 0`, this agrees with
+        section 8.2.5 of Nekrasov-Okounkov with preferred slope
+        fixing the z-axis. Our ``kappa`` is their `\kappa^{1/2}`.
 
         ALGORITHM:
 
-        - Set `x, y, z = u^N, u^{-N-1}, \kappa u` where `N \gg 0`.
+        - Set `x, y, z = u^a, u^b, \kappa u^c`.
 
         - Take the limit `u \to 0`.
         """
-        codomain = kappa.parent()
-        if not kappa.is_unit():
-            codomain = codomain.fraction_field()
-        
         def smallest_u_term(f):
             # Keep track of the coefficient of the u term with
             # smallest degree seen so far as we iterate through f.
-            # Assume f is a polynomial in x, y, z.
+            # Assume f lives in a (Laurent)PolynomialRing
             min_deg_u = Infinity
             coeff = 0
-            for (i, j, k), c in f.dict().items():
-                deg_u = N*i - (N+1)*j + k
+            for exps, c in f.dict().items():
+                deg_u = sum(sk*ek for sk,ek in zip(s, exps))
                 if deg_u > min_deg_u:
                     continue
                 if deg_u < min_deg_u:
                     min_deg_u = deg_u
                     coeff = 0
-                coeff += c * kappa**k
+                coeff += c * kappa^(exps[0])
             return min_deg_u, coeff
 
-        def take_index_limit(f):
-            # Takes the index limit of an element in the weight ring
-            R = f.parent()
-            if R is Default.weight_ring:
-                deg_num, coeff_num = smallest_u_term(f)
-                deg_denom, coeff_denom = 0, 1
-            elif R is Default.weight_ring.fraction_field():
-                deg_num, coeff_num = smallest_u_term(f.numerator())
-                deg_denom, coeff_denom = smallest_u_term(f.denominator())
-            else:
-                raise ValueError("don't know what to do with %s " % R)
-
-            if deg_num != deg_denom:
-                raise ValueError("index limit of %s does not exist" % f)
-            else:
-                return coeff_num / coeff_denom
-
-        return Default._apply_to_weight_ring(take_index_limit, f, codomain)
+        deg_num, coeff_num = smallest_u_term(f.numerator())
+        deg_denom, coeff_denom = smallest_u_term(f.denominator())
+        if deg_num != deg_denom:
+            raise ValueError("index limit of %s does not exist" % f)
+        return coeff_num / coeff_denom
 
 class KTheory_hashed:
     r"""
@@ -413,7 +502,8 @@ class Cohomology:
         variables as cohomological ones. (Namely, an output variable `u`
         implicitly means `\log u`.)
         """
-        return sum(c * Cohomology.from_monomial(w)^k / factorial(k)
+        div = lambda a,b: a.parent().fraction_field()(a) / b
+        return sum(c * div(Cohomology.from_monomial(w)^k, factorial(k))
                    for c, w in f)
 
     @staticmethod
@@ -443,6 +533,15 @@ class Counting:
         Returns the counting measure applied to `f`.
         """
         return 1
+
+    @staticmethod
+    def from_monomial(f):
+        """
+        Takes a K-theoretic monomial `m` and returns zero.
+
+        This method is provided for consistency with other theories.
+        """
+        return 0
 
     @staticmethod
     def edge_transformation(x, y, z, a, b):

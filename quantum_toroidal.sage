@@ -161,11 +161,11 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
         if x in SymmetricFunctions(x.base_ring()):
             # Act on symmetric functions using Fock representation
             # with evaluation parameter 1.
-            return self.fock(x, is_left, eval_param=1)
+            return self.fock(x, eval_param=1, is_left=is_left)
         else:
             return IndexedFreeModuleElement._act_on_(self, x, is_left)
 
-    def fock(self, x, is_left, eval_param):
+    def fock(self, x, eval_param, is_left=True):
         r"""
         Act by ``self`` on a symmetric polynomial `x` via the
         Fock representation with evaluation parameter ``eval_param``.
@@ -175,12 +175,19 @@ class QuantumToroidalAlgebraElement(IndexedFreeModuleElement):
             sage: R = ZZ['t1','t2','u']; QTA = QuantumToroidalAlgebra(R.0, R.1)
             sage: Sym = SymmetricFunctions(R.fraction_field())
             sage: P = Sym.macdonald(q=R.0, t=R.1).Ht()
-            sage: QTA.e(1,2).fock(P[1], True, R.2)
+            sage: QTA.e(1,2).fock(P[1], R.2, True)
             1/u^2*McdHt[]
         """
-        res = sum(coeff * self.parent().fock_rep(mon, x, is_left, eval_param)
+        res = sum(coeff * self.parent().fock_rep(mon, x, eval_param, is_left)
                   for mon, coeff in self.monomial_coefficients().items())
         return x.parent()(res) # convert back to original basis
+
+    def truncate_reverse(self, d):
+        """
+        The truncation of ``self`` to terms of degree greater than `d`.
+        """
+        return sum( (term for term in self.terms() if term.degree() > d),
+                    self.parent().zero() )
 
 class QuantumToroidalAlgebra(CombinatorialFreeModule):
     r"""
@@ -188,7 +195,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
     """
     Element = QuantumToroidalAlgebraElement
 
-    def __init__(self, t1, t2, category=Algebras):
+    def __init__(self, t1, t2, category=Algebras, slope_order=1):
         """
         Creates the quantum toroidal algebra.
         """
@@ -214,6 +221,8 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
                                          category=cat)
         self.t1, self.t2 = t1, t2
 
+        self._slope_order = slope_order
+
     def _basis_key(self, k):
         r"""
         Key for ordering elements `e_a` and `K_a` within monomials.
@@ -236,7 +245,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         if a1 == 0:
             return (elt, sign(a2)*oo, -a1)
         else:
-            return (elt, a2/a1, -a1)
+            return (elt, self._slope_order*a2/a1, -a1)
 
     def _monoid_key(self, x):
         """
@@ -373,6 +382,24 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         else:
             return self.gens()[a1, a2, 'K']
 
+    def alpha(self, w, k):
+        """
+        The degree-`k` element of the slope `w` Heisenberg subalgebra.
+        (The slope may be infinite.)
+
+        EXAMPLES::
+
+            sage: R = ZZ['t1','t2']; QTA = QuantumToroidalAlgebra(R.0, R.1)
+            sage: QTA.alpha(-4/3, 2)
+            e(-6,8)
+            sage: QTA.alpha(oo, -1)
+            e(0,-1)
+        """
+        a, b = (w.numerator(), w.denominator()) if w != oo else (1,0)
+        if a < 0:
+            a, b = -a, -b
+        return self.e(b*k, a*k)
+
     def _an_element_(self):
         r"""
         Return an element of ``self``.
@@ -431,7 +458,7 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
                 (1 - self.t1^-d * self.t2^-d)) / d
 
     @cached_method
-    def Psi(self, a1, a2=None):
+    def Psi(self, a1, a2=None, inv=False):
         r"""
         Returns the element `\Psi_{(a_1, a_2)}`, where
 
@@ -457,7 +484,8 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         k = gcd(a1, a2)
         a1_red, a2_red = a1 // k, a2 // k
 
-        return sum((prod(self.n(m)*self.e(m*a1_red, m*a2_red) for m in L) /
+        sgn = -1 if inv else 1
+        return sum((prod(sgn*self.n(m)*self.e(m*a1_red, m*a2_red) for m in L) /
                     factorial(len(L))) for L in Compositions(k))
 
     def degree_on_basis(self, x):
@@ -657,13 +685,10 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
                         yield c
 
     @cached_method
-    def _fock_rep_e_on_monomial(self, a, mu, R, eval_param):
+    def _fock_rep_e_on_monomial(self, a, mu, R):
         r"""
         Defines the Fock representation of the element `e(a)` of the
         quantum toroidal algebra, on the symmetric polynomial ``R[mu]``.
-
-        If ``eval_param`` (default: 1) is specified, use it as the
-        evaluation parameter for the Fock module.
 
         This function is separate from :meth:`fock_rep` for caching.
         """
@@ -684,8 +709,11 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
             def sc(nu, coeff):
                 return nu, coeff * self._tautological_weight(nu, m)
             McdHt = sym.macdonald(q=self.t1, t=self.t2).Ht()
-            res = sign(m)/(eval_param^m*(1-self.t1^m)) * McdHt(x).map_item(sc)
+            res = sign(m)/(1-self.t1^m) * McdHt(x).map_item(sc)
             return R(res) # convert back to original basis
+
+        elif a[0] > mu.size():
+            return R.zero() # lowering beyond principal degree of mu
 
         else:
             # Recurse on a closer lattice point.
@@ -696,12 +724,12 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
                 c = next(self.primitive_interior_lattice_points(a, b))
 
             ec, eac = self.e(c), self.e(a-c)
-            fock = lambda f, g: f.fock(g, True, eval_param)
+            fock = lambda f, g: f.fock(g, 1)
             commutator = fock(ec, fock(eac, x)) - fock(eac, fock(ec, x))
             coeff, rest = self.bracket(ec, eac)._isolate_e_term(self.e(a))
             return fock(~coeff, commutator - fock(rest, x))
         
-    def fock_rep(self, mon, x, is_left=True, eval_param=1):
+    def fock_rep(self, mon, x, eval_param=1, is_left=True):
         r"""
         Defines the Fock representation of a monomial ``mon``, in the
         quantum toroidal algebra, on a symmetric polynomial ``x``.
@@ -741,8 +769,8 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
                 res = (self.t1*self.t2)^(a[0]/2) * res
             else:
                 # Defining action of e(i,j).
-                res = sum((c*self._fock_rep_e_on_monomial(a, mu, R, eval_param)
-                           for mu, c in res), R.zero())
+                res = sum((c*self._fock_rep_e_on_monomial(a, mu, R)
+                           for mu, c in res), R.zero()) * eval_param^-a[1]
         return res
 
     def _derivative_with_respect_to_pm(self, x, m, sym):
