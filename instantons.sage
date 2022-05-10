@@ -279,8 +279,8 @@ class Instantons(UniqueRepresentation):
         Quantum difference operator for `\mathcal{O}(1)`, as a matrix
         in the fixed point basis, with Kahler parameter `z`.
         """
-        return prod((self.qde_wall(n, w, q*z) for w in self.walls(n)),
-                    self.O(1))
+        return prod((self.qde_wall(n, w, q, z) for w in self.walls(n)),
+                    self.O(1, n))
 
 def quo_rem_with_slope(f, g, x, s):
     r"""
