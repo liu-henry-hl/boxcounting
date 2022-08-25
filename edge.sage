@@ -20,16 +20,13 @@ class Edge(UniqueRepresentation):
 
         TODO
     """
-    def __init__(self, a, b, x, y, z, u=(1,), ct=KTheory):
+    def __init__(self, a, b, ct=KTheory):
         self.a, self.b = a, b
-        self.x, self.y, self.z = x, y, z
-        self.u = u
-
         self._ct = ct
 
     def __repr__(self):
-        return "(%s, %s) edge in x=%s, y=%s, z=%s, u=%s using %s" % \
-            (self.a, self.b, self.x, self.y, self.z, self.u, self._ct.name)
+        return "(%s, %s) edge using %s" % \
+            (self.a, self.b, self._ct.name)
 
     @staticmethod
     @cached_method
@@ -54,7 +51,7 @@ class Edge(UniqueRepresentation):
 
     @staticmethod
     def raw_weight(lamb, y, z, u=(1,)):
-        """
+        r"""
         Computes the raw localization weight of the edge ``lamb``.
         Always returns a Laurent polynomial in these variables.
         
@@ -71,7 +68,7 @@ class Edge(UniqueRepresentation):
         return quo
 
     @cached_method
-    def weight(self, lamb):
+    def weight(self, lamb, x=Default.x, y=Default.y, z=Default.z, u=(1,)):
         r"""
         Computes the localization weight of the edge ``lamb``.
         Always returns a Laurent polynomial in `x`, `y`, `z`, `u`.
@@ -79,7 +76,6 @@ class Edge(UniqueRepresentation):
         This is the function `E_{\alpha\beta}` in MNOP I if ``lamb``
         is a single partition.
         """
-        x, y, z, u = self.x, self.y, self.z, self.u
         F = Edge.raw_weight(lamb, y, z, u)
         Fsub = Edge.raw_weight(lamb, y * x^-self.a, z * x^-self.b, u)
 
@@ -98,7 +94,7 @@ class Edge(UniqueRepresentation):
         # return quo
 
     def chi(self, lamb):
-        r"""
+        """
         Computes the contribution to the Euler characteristic
         of an edge ``lamb``.
         """
@@ -108,8 +104,12 @@ class Edge(UniqueRepresentation):
                    for p in lamb)
 
     @cached_method
-    def term_q(self, lamb, q):
-        r"""
+    def term_q(self, lamb, x=Default.x, y=Default.y, z=Default.z, u=(1,), q=Default.q):
+        """
         Returns the q-series term corresponding to ``lamb``.
         """
-        return (-q)^self.chi(lamb) * self._ct.measure(self.weight(lamb))
+        res = self._ct.measure(self.weight(lamb))
+        if (x, y, z) != (Default.x, Default.y, Default.z):
+            R = Default.boxcounting_ring.base_ring()
+            res = res.subs(x=R(x), y=R(y), z=R(z))
+        return (-q)^self.chi(lamb) * res

@@ -33,16 +33,18 @@ def pretty(f):
         base = pretty(f.coefficients()[-1]).parent()
         return f.map_coefficients(pretty, base)
     elif is_MPowerSeriesRing(f.parent()):
+        prec = f.prec()
         testx = pretty(f.base_ring().an_element())
         RSR = f.parent().change_ring(testx.parent())
         return sum(pretty(c) * RSR(mon)
-                   for mon, c in f.coefficients().items())
+                   for mon, c in f.coefficients().items()).add_bigoh(prec)
     elif is_LaurentSeriesRing(f.parent()):
+        prec = f.prec()
         testx = pretty(f.base_ring().an_element())
         RSR = f.parent().change_ring(testx.parent())
         x = RSR.gen()
-        return sum(pretty(coeff) * x^exp
-                   for exp, coeff in zip(f.exponents(), f.coefficients()))
+        return sum(pretty(coeff) * x^exp for exp, coeff
+                   in zip(f.exponents(), f.coefficients())).add_bigoh(prec)
     elif hasattr(f, 'map_coefficients'):
         return f.map_coefficients(pretty)
     elif f:

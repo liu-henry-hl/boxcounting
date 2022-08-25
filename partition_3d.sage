@@ -217,7 +217,7 @@ class Partition3d(ClonableElement):
         """
         return not self.__eq__(other)
     
-    def plot(self):
+    def plot(self, colors=('red','green','blue')):
         """
         Plot ``self`` as a Graphics3d object.
         """
@@ -225,10 +225,13 @@ class Partition3d(ClonableElement):
         Bx, By, Bz = max(10, Nx+5), max(10, Ny+5), max(10, Nz+5)
         
         from sage.plot.plot3d.shapes import ColorCube
-        cube = ColorCube([.5,.5,.5], ['red', 'blue', 'green'], opacity=0.85)
+        cube = ColorCube([.5,.5,.5], colors, opacity=0.85)
         plot = sum(cube.translate(*b) for b in self.boxes(Nx=Bx, Ny=By, Nz=Bz))
 
-        plot.show(frame=False, aspect_ratio=1)
+        from sage.plot.plot3d.plot3d import axes
+        plot += axes(max(max(Bx, By), Bz)+1, 3, color='black')
+
+        plot.show(frame=False, axes=True, aspect_ratio=1)
 
     def boxes(self, Nx=PlusInfinity, Ny=PlusInfinity, Nz=PlusInfinity):
         r"""

@@ -109,7 +109,7 @@ class BareVertex(UniqueRepresentation):
         """
         min_vol = self._partitions.minimal_volume()
         if prec <= 0:
-            return Default.boxcounting_ring.zero().add_bigoh(min_vol)
+            return q.parent().zero().add_bigoh(min_vol)
 
         res = sum(self.term(k, x,y,z, descendant) * (-q)^(k+min_vol)
                   for k in range(prec))

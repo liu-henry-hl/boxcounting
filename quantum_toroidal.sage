@@ -283,7 +283,8 @@ class QuantumToroidalAlgebra(CombinatorialFreeModule):
         """
         Return a latex representation of ``self``.
         """
-        return "U_{q}(\\widehat{\\widehat{\\mathfrak{gl}}}_1)"
+        return "U_{%s,%s}(\\widehat{\\widehat{\\mathfrak{gl}}}_1)" % \
+            (self.t1,self.t2)
 
     def _repr_term(self, m):
         """

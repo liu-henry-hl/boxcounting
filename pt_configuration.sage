@@ -225,21 +225,24 @@ class PTConfiguration(Partition3d):
         """
         return not self.__eq__(other)
 
-    def plot(self):
+    def plot(self, colors=('red','green','blue')):
         """
         Plot ``self`` as a Graphics3d object.
         """
         from sage.plot.plot3d.shapes import ColorCube
-        cube = ColorCube([.5,.5,.5], ['red', 'blue', 'green'], opacity=0.85)
+        cube = ColorCube([.5,.5,.5], colors, opacity=0.85)
         plot = sum(cube.translate(*b) for b in self.boxes(labels=False))
 
         legs = Partitions3d(*self.parent().legs()).minimal_element()
         Nx, Ny, Nz = legs.bounding_box()
         Bx, By, Bz = max(10, Nx+5), max(10, Ny+5), max(10, Nz+5)
-        cube = ColorCube([.5,.5,.5], ['red', 'blue', 'green'], opacity=0.20)
+        cube = ColorCube([.5,.5,.5], colors, opacity=0.20)
         plot += sum(cube.translate(*b) for b in legs.boxes(Nx=Bx, Ny=By, Nz=Bz))
 
-        plot.show(aspect_ratio=1, frame=False)
+        from sage.plot.plot3d.plot3d import axes
+        plot += axes(max(max(Bx, By), Bz)+1, 3, color='black')
+
+        plot.show(frame=False, axes=True, aspect_ratio=1)
 
     def boxes(self, **kwargs):
         r"""
